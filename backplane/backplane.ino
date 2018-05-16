@@ -568,6 +568,10 @@ void loop()
             Serial.println(slotNum+1);
         }
         powerOn(slotNum);
+       /*
+        need to check if the slot is empty (caddy type) and if it is 0, 
+        power off the slot to prevent fresh inserted caddys from turning on       
+       */
       }
     }
   }
