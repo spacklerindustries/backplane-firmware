@@ -159,7 +159,7 @@ void setup() {
   pinMode(clockPin, OUTPUT);
   pinMode(dataPin, INPUT);
   shiftout.setBitCount(DATA_WIDTH);
-  shiftout.setPins(dataOutPin, clockOutPin, latchOutPin); 
+  shiftout.setPins(dataOutPin, clockOutPin, latchOutPin);
   //pinMode(latchOutPin, OUTPUT);
   //pinMode(clockOutPin, OUTPUT);
   //pinMode(dataOutPin, OUTPUT);
@@ -234,7 +234,7 @@ void writeShiftOutPin(int slotNum, int pinNumber, int highOrLow) {
 
 int getType(int slotNum) {
   //Serial.print("SlotNum: ");
-  //Serial.println(slotNum);  
+  //Serial.println(slotNum);
   int pinOffsetVal = 0;
   for(int i = 1; i <= numBackplaneSlots; i ++) {
     if (i == slotNum) {
@@ -326,7 +326,7 @@ void i2cRespond(int slotNum)
  */
 void receiveEvents(int howMany)
 {
-  Serial.println("Received Message"); 
+  Serial.println("Received Message");
   int c[2];
   for(int b=0; b<2; b++) {
     c[b]=0;
@@ -372,10 +372,10 @@ void sendToMaster(int slotNum)
  * Main loop
  */
 void loop()
-{  
+{
   /* Check if any pins have updated on the shiftregisters */
   pinValues = read_shift_regs();
-  if (pinValues != oldPinValues) {    
+  if (pinValues != oldPinValues) {
     //Serial.print("*Pin value change detected*\r\n");
     //display_pin_values();
     oldPinValues = pinValues;
@@ -410,6 +410,10 @@ void loop()
     }*/
     buttonstate[slotNum] = reading;
     int slotAlwaysOn = invertLogic(readShiftInPin(i, 5));
+    if (getType(slotNum) == 0 {
+      /* if a slot is empty, turn it off :) */
+      powerOff(slotNum)
+    }
     /* always on check */
     if (slotAlwaysOn == 0) {
       /* blinking check */
@@ -492,7 +496,7 @@ void loop()
             Serial.println("Send shutdown signal");
           }
           /* Start Shutdown Sequence */
-          //digitalWrite(SHUTDOWN_PIN, HIGH);     
+          //digitalWrite(SHUTDOWN_PIN, HIGH);
           writeShiftOutPin(slotNum, 2, HIGH);
           delay(800);
           //digitalWrite(SHUTDOWN_PIN, LOW);
@@ -568,10 +572,6 @@ void loop()
             Serial.println(slotNum+1);
         }
         powerOn(slotNum);
-       /*
-        need to check if the slot is empty (caddy type) and if it is 0, 
-        power off the slot to prevent fresh inserted caddys from turning on       
-       */
       }
     }
   }
@@ -641,4 +641,3 @@ void longPressFlash(int slotNum)
     delay(50);
   }
 }
-
