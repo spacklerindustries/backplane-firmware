@@ -376,15 +376,37 @@ void loop()
   /* Check if any pins have updated on the shiftregisters */
   pinValues = read_shift_regs();
   if (pinValues != oldPinValues) {
-    //Serial.print("*Pin value change detected*\r\n");
-    //display_pin_values();
-    oldPinValues = pinValues;
     /* Update master */
-    for(int i = 1; i <= numBackplaneSlots; i ++) {
-      /* figure out how to do this better, per slot rather than all slots */
-      Serial.println("Pinchange");
-      sendToMaster(i);
+    int count=0;
+    int slotnum=0;
+    int changed[2];
+    for(int b=0; b<2; b++) {
+      changed[b]=0;
     }
+    for(int i = 0; i < DATA_WIDTH; i++)
+    {
+      if (count == 7) {
+        if (changed[slotnum] == 1) {
+          int sendslot = slotnum+1;
+          sendToMaster(sendslot);
+        }
+        count = 0;
+        changed[slotnum] = 0;
+        slotnum++;
+      }
+      int test1 = (pinValues >> i) & 1;
+      int test2 = (oldPinValues >> i) & 1;
+      if(test1 != test2) {
+        changed[slotnum] = 1;
+      }
+      count++;
+    }
+    oldPinValues = pinValues;
+    //for(int i = 1; i <= numBackplaneSlots; i ++) {
+      /* figure out how to do this better, per slot rather than all slots */
+    //  Serial.println("Pinchange");
+    //  sendToMaster(i);
+    //}
   }
   if(powerstatus[0]==9) {
     /* Polled by master */
@@ -410,9 +432,9 @@ void loop()
     }*/
     buttonstate[slotNum] = reading;
     int slotAlwaysOn = invertLogic(readShiftInPin(i, 5));
-    if (getType(slotNum) == 0 {
+    if (getType(slotNum) == 0) {
       /* if a slot is empty, turn it off :) */
-      powerOff(slotNum)
+      powerOff(slotNum);
     }
     /* always on check */
     if (slotAlwaysOn == 0) {
