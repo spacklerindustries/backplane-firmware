@@ -385,14 +385,14 @@ void loop()
     }
     for(int i = 0; i < DATA_WIDTH; i++)
     {
-      if (count == 7) {
+      if (count == 7) { //we have 8 pins in the shift register per slot, if we hit count 7 that is the last pin for that slot, do the function
         if (changed[slotnum] == 1) {
-          int sendslot = slotnum+1;
+          int sendslot = slotnum+1; //we can't use 0, bump it by 1 to send to master
           sendToMaster(sendslot);
         }
-        count = 0;
-        changed[slotnum] = 0;
-        slotnum++;
+        count = 0; // reset
+        changed[slotnum] = 0; // reset
+        slotnum++; // increment slotnum for next slot
       }
       int test1 = (pinValues >> i) & 1;
       int test2 = (oldPinValues >> i) & 1;
@@ -401,12 +401,7 @@ void loop()
       }
       count++;
     }
-    oldPinValues = pinValues;
-    //for(int i = 1; i <= numBackplaneSlots; i ++) {
-      /* figure out how to do this better, per slot rather than all slots */
-    //  Serial.println("Pinchange");
-    //  sendToMaster(i);
-    //}
+    oldPinValues = pinValues; // revert
   }
   if(powerstatus[0]==9) {
     /* Polled by master */
