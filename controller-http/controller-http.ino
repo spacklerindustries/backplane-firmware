@@ -52,7 +52,8 @@ void setup() {
   /* i2c */
   /* ethernet */
   Serial.begin(9600);
-  delay(1500); //ethernet init delay
+  Serial.println("Init");
+  delay(500); //ethernet init delay
   //Ethernet.begin(mac, ip);
   // Initialize Ethernet libary DHCP
   if (!Ethernet.begin(mac)) {
@@ -60,7 +61,8 @@ void setup() {
     return;
   }
   //client.setClientTimeout(100);
-  delay(1000); //ethernet additional init delay
+  Serial.println("Init2");
+  delay(500); //ethernet additional init delay
   server.begin();
   /* mdns */
   if (usemdns == true) {
