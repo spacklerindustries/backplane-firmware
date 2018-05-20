@@ -41,7 +41,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
   }
   message[length] = '\0';
   Serial.println("");
-  
+
   StaticJsonBuffer<BUFFER_SIZE> jsonBuffer;
   JsonObject& root = jsonBuffer.parseObject(message);
   if (!root.success()) {
@@ -156,7 +156,7 @@ void recieveFrom()
 
   char buffer[root.measureLength() + 1];
   root.printTo(buffer, sizeof(buffer));
-    
+
   client.publish("bp/caddy_data", buffer);
 }
 
