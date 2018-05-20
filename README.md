@@ -2,5 +2,5 @@
 
 This is the firmware for the backplane
 
-* Controller - This is the controller firmware, this is used to talk MQTT to the rest of the services
-* Backplane - This is the backplane firmware, and is used to talk I2C to the controller
+* Controller - This is the controller firmware, this uses HTTP API to talk to other services
+* Backplane - This is the backplane firmware, and it uses I2C to talk to the controller
