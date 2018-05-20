@@ -56,7 +56,7 @@ BYTES_VAL_T pinValues;
 BYTES_VAL_T oldPinValues;
 
 /* I2C Address range use 8 to 119 */
-int i2cAddress=8;
+int i2cAddress=11;
 
 int buttondowncount[numBackplaneSlots];
 int buttonupcount[numBackplaneSlots];
@@ -379,12 +379,17 @@ void loop()
     /* Update master */
     int count=0;
     int slotnum=0;
-    int changed[2];
-    for(int b=0; b<2; b++) {
+    int changed[3];
+    for(int b=0; b<3; b++) {
       changed[b]=0;
     }
     for(int i = 0; i < DATA_WIDTH; i++)
     {
+      int test1 = (pinValues >> i) & 1;
+      int test2 = (oldPinValues >> i) & 1;
+      if(test1 != test2) {
+        changed[slotnum] = 1;
+      }
       if (count == 7) { //we have 8 pins in the shift register per slot, if we hit count 7 that is the last pin for that slot, do the function
         if (changed[slotnum] == 1) {
           int sendslot = slotnum+1; //we can't use 0, bump it by 1 to send to master
@@ -393,11 +398,6 @@ void loop()
         count = 0; // reset
         changed[slotnum] = 0; // reset
         slotnum++; // increment slotnum for next slot
-      }
-      int test1 = (pinValues >> i) & 1;
-      int test2 = (oldPinValues >> i) & 1;
-      if(test1 != test2) {
-        changed[slotnum] = 1;
       }
       count++;
     }
@@ -427,7 +427,7 @@ void loop()
     }*/
     buttonstate[slotNum] = reading;
     int slotAlwaysOn = invertLogic(readShiftInPin(i, 5));
-    if (getType(slotNum) == 0) {
+    if (getType(i) == 0) {
       /* if a slot is empty, turn it off :) */
       powerOff(slotNum);
     }
@@ -628,10 +628,13 @@ void powerOn(int slotNum)
 {
   //digitalWrite(LED_PIN, HIGH);
   //digitalWrite(MOSFET_PIN, HIGH);
-  writeShiftOutPin(slotNum, 0, HIGH);
-  writeShiftOutPin(slotNum, 1, HIGH);
+  if (getType(slotnum) != 0 ) { // if the caddy is empty, don't bother turning it on
+    writeShiftOutPin(slotNum, 0, HIGH);
+    writeShiftOutPin(slotNum, 1, HIGH);
+  }
   //Serial.println("PowerOn");
 }
+
 int pinOffsetNumber(int slotNum, int pinNum) {
   int pinOffsetVal = pinNum;
   for(int i = 1; i <= numBackplaneSlots; i ++) {
