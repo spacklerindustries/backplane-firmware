@@ -504,7 +504,11 @@ void loop()
         //digitalWrite(SHUTDOWN_PIN, LOW);
         writeShiftOutPin(slotNum, 2, LOW);
         /* Turn power on */
-        powerOn(slotNum);
+        if (getType(i) != 0 ) { // if the caddy is empty, don't bother turning it on
+          powerOn(slotNum);
+        } else {
+          powerstatus[slotNum]=0;
+        }
         /* Update master */
         sendToMaster(slotNum+1);
       } else if(powerstatus[slotNum]==3) {
@@ -628,10 +632,8 @@ void powerOn(int slotNum)
 {
   //digitalWrite(LED_PIN, HIGH);
   //digitalWrite(MOSFET_PIN, HIGH);
-  if (getType(slotnum) != 0 ) { // if the caddy is empty, don't bother turning it on
-    writeShiftOutPin(slotNum, 0, HIGH);
-    writeShiftOutPin(slotNum, 1, HIGH);
-  }
+  writeShiftOutPin(slotNum, 0, HIGH);
+  writeShiftOutPin(slotNum, 1, HIGH);
   //Serial.println("PowerOn");
 }
 
