@@ -6,8 +6,6 @@ Caddyshack Master controller - spackler
 #include <Wire.h>
 // Ethernet includes
 #include <Ethernet.h>
-// JSON includes
-#include <ArduinoJson.h>
 // mdns includes
 #include <ArduinoMDNS.h>
 
@@ -34,10 +32,8 @@ EthernetServer server(80);
 
 EthernetClient client;
 boolean alreadyConnected = false;
-  
-unsigned long checkInterval = 3000;
 
-const int BUFFER_SIZE = JSON_OBJECT_SIZE(3);
+unsigned long checkInterval = 3000;
 
 /*
   mdns translation
@@ -52,7 +48,6 @@ void setup() {
   /* i2c */
   /* ethernet */
   Serial.begin(9600);
-  Serial.println("Init");
   delay(500); //ethernet init delay
   //Ethernet.begin(mac, ip);
   // Initialize Ethernet libary DHCP
@@ -61,7 +56,6 @@ void setup() {
     return;
   }
   //client.setClientTimeout(100);
-  Serial.println("Init2");
   delay(500); //ethernet additional init delay
   server.begin();
   /* mdns */
@@ -176,13 +170,13 @@ void powerControlSlot(byte i2c, byte slot, byte cmd) {
 */
 void receiveEvents(int howMany)
 {
-  
+
   if (!alreadyConnected) {
     alreadyConnected = true;
   // do http client POST here
   //client.publish("bp/caddy_data", buffer);
   //if (!client.connected()) {
-    
+
   int argIndex = -1;
   while(Wire.available()) {
     if (argIndex < 32){
@@ -197,33 +191,19 @@ void receiveEvents(int howMany)
     }
   }
 
-  StaticJsonBuffer<BUFFER_SIZE> jsonBuffer;
-  JsonObject& root = jsonBuffer.createObject();
-  //root["message_type"] = "caddy_data";
-  //JsonObject& message_data = root.createNestedObject("message_data");
-  //message_data["i2c"] = a[0];
-  root["ps"] = a[1];
-  //message_data["ls"] = a[2];
-  //message_data["pi"] = a[3];
-  root["ao"] = a[4];
-  root["ct"] = a[5];
-  //message_data["sn"] = a[6];
+  String buffer = "{\"ps\":" + String(a[1]) + ",\"ao\":" + String(a[4]) + ",\"ct\":" + String(a[5]) + "}";
 
-  char buffer[root.measureLength() + 1];
-  root.printTo(buffer, sizeof(buffer));
-  
   client.flush();
   client.setTimeout(500);
     if (client.connect(greenskeeper, 8080))  {
      Serial.println("connected");
      String postQuery = "POST /api/v1/caddydata/i2c/" + String(a[0]) + "/slot/" + String(a[6]) + " HTTP/1.1";
-     //String hostQuery = "Host: " + IpAddress2String(greenskeeper);
+     String hostQuery = "Host: " + IpAddress2String(greenskeeper);
      client.println(postQuery);
-     client.println("Host: 10.1.1.1");
+     client.println(hostQuery);
      client.println("Content-Type: application/json");
      client.print("Content-Length: ");
-     //char str[] = "key=value";
-     client.println(strlen(buffer));
+     client.println(buffer.length());
      client.println("Connection: close\r\n");
      client.println(buffer);
      Serial.println(buffer);
@@ -232,7 +212,7 @@ void receiveEvents(int howMany)
             Serial.print(client.read());
             Serial.print(" ");
          }
-         
+
      }
      Serial.println("");
      client.stop();
@@ -249,7 +229,7 @@ String IpAddress2String(const IPAddress& ipAddress)
   return String(ipAddress[0]) + String(".") +\
   String(ipAddress[1]) + String(".") +\
   String(ipAddress[2]) + String(".") +\
-  String(ipAddress[3])  ; 
+  String(ipAddress[3])  ;
 }
 
 /*
