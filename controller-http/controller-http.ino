@@ -7,7 +7,7 @@ Caddyshack Master controller - spackler
 // Ethernet includes
 #include <Ethernet.h>
 // JSON includes
-#include <ArduinoJson.h>
+//#include <ArduinoJson.h>
 // mdns includes
 #include <ArduinoMDNS.h>
 
@@ -37,7 +37,7 @@ boolean alreadyConnected = false;
   
 unsigned long checkInterval = 3000;
 
-const int BUFFER_SIZE = JSON_OBJECT_SIZE(3);
+//const int BUFFER_SIZE = JSON_OBJECT_SIZE(3);
 
 /*
   mdns translation
@@ -195,7 +195,7 @@ void receiveEvents(int howMany)
     }
   }
 
-  StaticJsonBuffer<BUFFER_SIZE> jsonBuffer;
+  /*StaticJsonBuffer<BUFFER_SIZE> jsonBuffer;
   JsonObject& root = jsonBuffer.createObject();
   //root["message_type"] = "caddy_data";
   //JsonObject& message_data = root.createNestedObject("message_data");
@@ -205,10 +205,11 @@ void receiveEvents(int howMany)
   //message_data["pi"] = a[3];
   root["ao"] = a[4];
   root["ct"] = a[5];
-  //message_data["sn"] = a[6];
+  //message_data["sn"] = a[6];*/
+  String buffer = "{\"ps\":" + String(a[1]) + ",\"ao\":" + String(a[4]) + ",\"ct\":" + String(a[5]) + "}";
 
-  char buffer[root.measureLength() + 1];
-  root.printTo(buffer, sizeof(buffer));
+  //char buffer[root.measureLength() + 1];
+  //root.printTo(buffer, sizeof(buffer));
   
   client.flush();
   client.setTimeout(500);
@@ -221,7 +222,7 @@ void receiveEvents(int howMany)
      client.println("Content-Type: application/json");
      client.print("Content-Length: ");
      //char str[] = "key=value";
-     client.println(strlen(buffer));
+     client.println(buffer.length());
      client.println("Connection: close\r\n");
      client.println(buffer);
      Serial.println(buffer);
