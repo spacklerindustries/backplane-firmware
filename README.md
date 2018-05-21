@@ -15,19 +15,19 @@ Note:
 
 ### Power on
 The value 2 is used to turn a slot on
-```
+``
 curl http://{controller-ip}/{i2c]/{slot}/2
-```
+``
 ### Power off
 The value 3 is used to soft shutdown a slot (if the OS supports it)
-```
+``
 curl http://{controller-ip}/{i2c]/{slot}/3
-```
+``
 ### Hard power off
 The value 5 is used to immediately shut down a slot (no soft shutdown
-```
+``
 curl http://{controller-ip}/{i2c]/{slot}/5
-```
+``
 ### Slot status changes
 When the backplane sends a status update to the controller, the controller will POST to the greenskeeper server to the `caddydata` API endpoint with the changes.
 
@@ -38,4 +38,4 @@ Note:
 
 # Limitations
 * ~32 kilobytes of memory available on an arduino nano, pushing it to the limits
-* Not very fast, as long as there isn't too much happening in the backplane
+* Not very fast, as long as there isn't too much happening in the backplane})}}`
