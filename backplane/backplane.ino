@@ -417,14 +417,8 @@ void loop()
   /* do button check stuff here, physical pin 5 is pinoffset value of 4 on the shift register*/
   int pinOffsetVal = 4;
   for(int i = 1; i <= numBackplaneSlots; i ++) {
-    //int buttonEventType = checkButton(i, 4);
     int slotNum = i-1;
     int reading = readShiftInPin(i, 4);
-    /*if (reading == 1) {
-      reading = 0;
-    } else {
-      reading = 1;
-    }*/
     buttonstate[slotNum] = reading;
     int slotAlwaysOn = invertLogic(readShiftInPin(i, 5));
     if (getType(i) == 0) {
@@ -434,46 +428,12 @@ void loop()
     /* always on check */
     if (slotAlwaysOn == 0) {
       /* blinking check */
-      if (blinking[slotNum]) {
-        currentMillis[slotNum] = millis();
-        if ((unsigned long)(currentMillis[slotNum] - previousMillis[slotNum]) >= blinkInterval) { // enough time passed yet?
-          if (flash[slotNum] == 0) {
-            writeShiftOutPin(slotNum, 1, LOW);
-            flash[slotNum] = 1;
-          } else {
-            writeShiftOutPin(slotNum, 1, HIGH);
-            flash[slotNum] = 0;
-          }
-          previousMillis[slotNum] = currentMillis[slotNum]; // sets the time we wait "from"
-        }
-      }
+      blinkCheck(slotNum);
       /* pi detection check */
-      if (checkPiIsOff[slotNum]) {
-        currentMillisPiCheck[slotNum] = millis();
-        if ((unsigned long)(currentMillisPiCheck[slotNum] - previousMillisPiCheck[slotNum]) >= piCheckInterval) { // enough time passed yet?
-          if (checkPiOff(slotNum) == 0) {
-            checkOffCount[slotNum] = checkOffCount[slotNum] + 1;
-          } else {
-            checkOffCount[slotNum]=0;
-            waitingOffTimeoutCount[slotNum] = waitingOffTimeoutCount[slotNum] + 1;
-          }
-          previousMillisPiCheck[slotNum] = currentMillisPiCheck[slotNum]; // sets the time we wait "from"
-        }
-      }
+      piDetectCheck(slotNum);
       /* faster blinking check */
-      if (fastBlinking[slotNum]) {
-        currentMillisFast[slotNum] = millis();
-        if ((unsigned long)(currentMillisFast[slotNum] - previousMillisFast[slotNum]) >= fastBlinkInterval) { // enough time passed yet?
-          if (flash[slotNum] == 0) {
-            writeShiftOutPin(slotNum, 1, LOW);
-            flash[slotNum] = 1;
-          } else {
-            writeShiftOutPin(slotNum, 1, HIGH);
-            flash[slotNum] = 0;
-          }
-          previousMillisFast[slotNum] = currentMillisFast[slotNum]; // sets the time we wait "from"
-        }
-      }/* end blinking checks */
+      fastBlinkCheck(slotNum);
+      /* end blinking checks */
       /* button state check */
       if (buttonstate[slotNum] == 0 && buttonstatelast[slotNum] == 1 && (millis() - upTime[slotNum]) > debounce) {
         downTime[slotNum] = millis();
@@ -517,10 +477,8 @@ void loop()
             Serial.println("Send shutdown signal");
           }
           /* Start Shutdown Sequence */
-          //digitalWrite(SHUTDOWN_PIN, HIGH);
           writeShiftOutPin(slotNum, 2, HIGH);
           delay(800);
-          //digitalWrite(SHUTDOWN_PIN, LOW);
           writeShiftOutPin(slotNum, 2, LOW);
           if (enableSerialPrintout == 1) {
             Serial.println("Start shutdown sequence");
@@ -534,14 +492,6 @@ void loop()
         checkPiIsOff[slotNum] = true;
 
         /* Check if it's off 5 times before shutting down */
-        /*
-        if (checkPiOff(slotNum) == 0) {
-          checkOffCount[slotNum] = checkOffCount[slotNum] + 1;
-        } else {
-          checkOffCount[slotNum]=0;
-          waitingOffTimeoutCount[slotNum] = waitingOffTimeoutCount[slotNum] + 1;
-        }*/
-
         if(checkOffCount[slotNum]>=5) {
           if (enableSerialPrintout == 1) {
             Serial.println("Power Off");
@@ -588,6 +538,7 @@ void loop()
       }/* end powerstatus check */
     /* end always on check */
     } else {
+      /* if always on is enabled, and the slot is not powered on, power it on */
       if (readShiftInPin(slotNum+1, 7) == 1) {
         if (enableSerialPrintout == 1) {
             Serial.println(slotNum+1);
@@ -599,6 +550,53 @@ void loop()
   /* set a short delay */
   delay(50);
 }
+
+/* start check functions */
+void blinkCheck(int slotNum) {
+  if (blinking[slotNum]) {
+    currentMillis[slotNum] = millis();
+    if ((unsigned long)(currentMillis[slotNum] - previousMillis[slotNum]) >= blinkInterval) { // enough time passed yet?
+      if (flash[slotNum] == 0) {
+        writeShiftOutPin(slotNum, 1, LOW);
+        flash[slotNum] = 1;
+      } else {
+        writeShiftOutPin(slotNum, 1, HIGH);
+        flash[slotNum] = 0;
+      }
+      previousMillis[slotNum] = currentMillis[slotNum]; // sets the time we wait "from"
+    }
+  }
+}
+void fastBlinkCheck(int slotNum) {
+  if (fastBlinking[slotNum]) {
+    currentMillisFast[slotNum] = millis();
+    if ((unsigned long)(currentMillisFast[slotNum] - previousMillisFast[slotNum]) >= fastBlinkInterval) { // enough time passed yet?
+      if (flash[slotNum] == 0) {
+        writeShiftOutPin(slotNum, 1, LOW);
+        flash[slotNum] = 1;
+      } else {
+        writeShiftOutPin(slotNum, 1, HIGH);
+        flash[slotNum] = 0;
+      }
+      previousMillisFast[slotNum] = currentMillisFast[slotNum]; // sets the time we wait "from"
+    }
+  }
+}
+void piDetectCheck(int slotNum) {
+  if (checkPiIsOff[slotNum]) {
+    currentMillisPiCheck[slotNum] = millis();
+    if ((unsigned long)(currentMillisPiCheck[slotNum] - previousMillisPiCheck[slotNum]) >= piCheckInterval) { // enough time passed yet?
+      if (checkPiOff(slotNum) == 0) {
+        checkOffCount[slotNum] = checkOffCount[slotNum] + 1;
+      } else {
+        checkOffCount[slotNum]=0;
+        waitingOffTimeoutCount[slotNum] = waitingOffTimeoutCount[slotNum] + 1;
+      }
+      previousMillisPiCheck[slotNum] = currentMillisPiCheck[slotNum]; // sets the time we wait "from"
+    }
+  }
+}
+/* end check functions */
 
 /*
  * pi detection sequence
@@ -627,7 +625,6 @@ void powerOff(int slotNum)
 /*
  * power on sequence
  */
-
 void powerOn(int slotNum)
 {
   //digitalWrite(LED_PIN, HIGH);
