@@ -3,7 +3,8 @@
 This is the firmware for the backplane
 
 * ~~Controller - This is the controller firmware, this is used to talk MQTT to the rest of the services~~
-* Controller-http - This is the controller firmware, this is used to talk HTTP to the rest of the services
+* ~~Controller-http - This is the controller firmware, this is used to talk HTTP to the rest of the services~~
+* Controller-serial - This is the controller firmware, this is connected directly to a raspberry pi as a HAT
 * Backplane - This is the backplane firmware, and is used to talk I2C to the controller
 
 ## Controller-HTTP
