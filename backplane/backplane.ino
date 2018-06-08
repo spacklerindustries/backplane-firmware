@@ -56,7 +56,7 @@ BYTES_VAL_T pinValues;
 BYTES_VAL_T oldPinValues;
 
 /* I2C Address range use 8 to 119 */
-int i2cAddress=11;
+int i2cAddress=8;
 
 int buttondowncount[numBackplaneSlots];
 int buttonupcount[numBackplaneSlots];

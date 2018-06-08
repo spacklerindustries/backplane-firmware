@@ -8,8 +8,6 @@ Caddyshack Master controller - spackler
 
 StaticJsonBuffer<200> jsonBuffer;
 
-#define BUFSIZE 16
-
 int a[32];
 
 String inputString = "";
@@ -28,7 +26,7 @@ void loop() {
   if (stringComplete) {
     // do something with the data we got
     JsonObject& root = jsonBuffer.parseObject(inputString);
-    powerControlSlot(root["i2caddress"], root["i2slot"], root["powercon"]);
+    powerControlSlot(root["i2caddress"], root["i2cslot"], root["powercon"]);
     // clear the string:
     inputString = "";
     stringComplete = false;
@@ -50,8 +48,8 @@ void serialEvent() {
   actually send the command to the backplanes
 */
 void powerControlSlot(byte i2c, byte slot, byte cmd) {
-  /* testing feedback */
-  //String buffer = "{\"i2ca\":"+String(i2c)+",\"i2cs\":"+String(slot)+",\"ps\":0,\"ao\":0,\"ct\":8}";
+  /* testing output */
+  //String buffer = "{\"i2ca\":" +String(i2c)+ ",\"i2cs\":" +String(slot)+ ",\"ps\":0,\"ao\":0,\"ct\":8}";
   //Serial.println(buffer);
   int received_backplane = i2c;
   int received_slotnum = slot;
@@ -77,7 +75,7 @@ void receiveEvents(int howMany)
       a[argIndex] = Wire.read(); /* collect all th data from slave */
     }
   }
-  String buffer = "{\"i2ca\":"+String(a[0])+",\"i2cs\":"+String(a[6])+",\"ps\":"+String(a[1])+",\"ao\":"+String(a[4])+",\"ct\":"+String(a[5])+"}";
+  String buffer = "{\"i2ca\":" +String(a[0])+ ",\"i2cs\":" +String(a[6])+ ",\"ps\":" +String(a[1])+ ",\"ao\":" +String(a[4])+ ",\"ct\":" +String(a[5])+ "}";
   //output the buffer to serial for reading by backplane-controller service
   Serial.println(buffer);
 }
