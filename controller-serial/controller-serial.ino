@@ -50,9 +50,9 @@ void serialEvent() {
   actually send the command to the backplanes
 */
 void powerControlSlot(byte i2c, byte slot, byte cmd) {
-  Serial.print(cmd);
-  Serial.print(slot);
-  Serial.println(i2c);
+  /* testing feedback */
+  //String buffer = "{\"i2ca\":"+String(i2c)+",\"i2cs\":"+String(slot)+",\"ps\":0,\"ao\":0,\"ct\":8}";
+  //Serial.println(buffer);
   int received_backplane = i2c;
   int received_slotnum = slot;
   int power_cmd = cmd;
@@ -77,7 +77,7 @@ void receiveEvents(int howMany)
       a[argIndex] = Wire.read(); /* collect all th data from slave */
     }
   }
-  String buffer = "{\"i2ca\":" +String(a[0])+ ",\"i2cs\":" +String(a[6])+ ",\"ps\":" +String(a[1])+ ",\"ao\":" +String(a[4])+ ",\"ct\":" +String(a[5])+ "}";
+  String buffer = "{\"i2ca\":"+String(a[0])+",\"i2cs\":"+String(a[6])+",\"ps\":"+String(a[1])+",\"ao\":"+String(a[4])+",\"ct\":"+String(a[5])+"}";
   //output the buffer to serial for reading by backplane-controller service
   Serial.println(buffer);
 }
