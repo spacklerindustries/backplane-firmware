@@ -24,9 +24,11 @@ Move to 3 slots per backplane board:
 */
 
 /* Includes */
+//i2c
 #include <Wire.h>
-
+//shift register
 #include <Shifty.h> /* https://github.com/johnnyb/Shifty */
+
 /* Set up I/O */
 /* Output Shift register pins */
 Shifty shiftout;
@@ -42,11 +44,13 @@ int clockPin        = 12; // Connects to the Clock pin the 165
 
 /* Setup --> */
 int enableSerialPrintout=1;
-/* Define the number of slots that this backplane unit will support */
-const int numBackplaneSlots=3;
+/* I2C Address range use 7 to 119 */
+int i2cAddress=7;
+/* Define the number of slots that this backplane unit will support 1 or 3*/
+const int numBackplaneSlots=1;
 /* set up the shift in and out registers */
 /* Define the number of slots that this backplane unit will support */
-#define NUMBER_OF_SHIFT_CHIPS   3
+#define NUMBER_OF_SHIFT_CHIPS   numBackplaneSlots
 #define DATA_WIDTH   NUMBER_OF_SHIFT_CHIPS * 8
 #define PULSE_WIDTH_USEC   5
 #define POLL_DELAY_MSEC   1
@@ -54,9 +58,6 @@ const int numBackplaneSlots=3;
 /* Define the number of slots that this backplane unit will support */
 BYTES_VAL_T pinValues;
 BYTES_VAL_T oldPinValues;
-
-/* I2C Address range use 8 to 119 */
-int i2cAddress=8;
 
 int buttondowncount[numBackplaneSlots];
 int buttonupcount[numBackplaneSlots];
@@ -398,8 +399,10 @@ void loop()
         count = 0; // reset
         changed[slotnum] = 0; // reset
         slotnum++; // increment slotnum for next slot
+      } else {
+        // increment else
+        count++;
       }
-      count++;
     }
     oldPinValues = pinValues; // revert
   }
