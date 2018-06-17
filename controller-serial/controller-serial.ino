@@ -25,6 +25,7 @@ void setup() {
 void loop() {
   if (stringComplete) {
     // do something with the data we got
+    jsonBuffer.clear(); //clear the buffer or it stops updating properly
     JsonObject& root = jsonBuffer.parseObject(inputString);
     powerControlSlot(root["i2caddress"], root["i2cslot"], root["powercon"]);
     // clear the string:
@@ -49,7 +50,7 @@ void serialEvent() {
 */
 void powerControlSlot(byte i2c, byte slot, byte cmd) {
   /* testing output */
-  //String buffer = "{\"i2ca\":" +String(i2c)+ ",\"i2cs\":" +String(slot)+ ",\"ps\":0,\"ao\":0,\"ct\":8}";
+  //String buffer = "\"i2ca\":" +String(i2c)+ ",\"i2cs\":" +String(slot)+ ",\"ps\":0,\"ao\":0,\"ct\":8";
   //Serial.println(buffer);
   int received_backplane = i2c;
   int received_slotnum = slot;
@@ -58,6 +59,7 @@ void powerControlSlot(byte i2c, byte slot, byte cmd) {
   uint8_t respond[2];
   respond[0] = power_cmd;
   respond[1] = received_slotnum;
+  //Serial.println(String(received_backplane) + ":" + String(received_slotnum) + ":" + String(power_cmd));
   Wire.write(respond, 2);
   Wire.endTransmission();
 }
