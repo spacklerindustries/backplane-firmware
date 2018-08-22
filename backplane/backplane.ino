@@ -43,11 +43,11 @@ int clockPin        = 12; // Connects to the Clock pin the 165
 /* End I/O */
 
 /* Setup --> */
-int enableSerialPrintout=1;
+int enableSerialPrintout=0;
 /* I2C Address range use 7 to 119 */
-int i2cAddress=7;
+int i2cAddress=11;
 /* Define the number of slots that this backplane unit will support 1 or 3*/
-const int numBackplaneSlots=1;
+const int numBackplaneSlots=3;
 /* set up the shift in and out registers */
 /* Define the number of slots that this backplane unit will support */
 #define NUMBER_OF_SHIFT_CHIPS   numBackplaneSlots
@@ -70,6 +70,7 @@ bool blinking[numBackplaneSlots];
 bool fastBlinking[numBackplaneSlots];
 bool checkPiIsOff[numBackplaneSlots];
 int flash[numBackplaneSlots];
+unsigned long pollInterval = 60000;
 unsigned long blinkInterval = 250;
 unsigned long piCheckInterval = 500;
 unsigned long fastBlinkInterval = 100;
@@ -81,6 +82,8 @@ unsigned long currentMillisPiCheck[numBackplaneSlots];
 unsigned long previousMillisPiCheck[numBackplaneSlots];
 unsigned long currentMillisFast[numBackplaneSlots];
 unsigned long previousMillisFast[numBackplaneSlots];
+unsigned long currentMillisPoll;
+unsigned long previousMillisPoll;
 
 int buttonstate[numBackplaneSlots];
 int buttonstatelast[numBackplaneSlots];
@@ -395,6 +398,7 @@ void loop()
         if (changed[slotnum] == 1) {
           int sendslot = slotnum+1; //we can't use 0, bump it by 1 to send to master
           sendToMaster(sendslot);
+          delay(5);
         }
         count = 0; // reset
         changed[slotnum] = 0; // reset
@@ -414,9 +418,11 @@ void loop()
     /* Update master */
     for(int i = 1; i <= numBackplaneSlots; i ++) {
       sendToMaster(i);
+      delay(5);
     }
     powerstatus[0] = 0;
   }
+  runPollInterval(); // send to master every pollInterval period (default 60 seconds)
   /* do button check stuff here, physical pin 5 is pinoffset value of 4 on the shift register*/
   int pinOffsetVal = 4;
   for(int i = 1; i <= numBackplaneSlots; i ++) {
@@ -555,6 +561,16 @@ void loop()
 }
 
 /* start check functions */
+void runPollInterval() {
+  currentMillisPoll = millis();
+  if ((unsigned long)(currentMillisPoll - previousMillisPoll) >= pollInterval) { // enough time passed yet?
+    for(int i = 1; i <= numBackplaneSlots; i ++) {
+      sendToMaster(i);
+      delay(5);
+    }
+    previousMillisPoll = currentMillisPoll; // sets the time we wait "from"
+  }
+}
 void blinkCheck(int slotNum) {
   if (blinking[slotNum]) {
     currentMillis[slotNum] = millis();
