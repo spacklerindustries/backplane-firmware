@@ -44,8 +44,8 @@ int clockPin        = 12; // Connects to the Clock pin the 165
 
 /* Setup --> */
 int enableSerialPrintout=0;
-/* I2C Address range use 7 to 119 */
-int i2cAddress=11;
+/* I2C Address range use 9 to 119, 8 is "Master" */
+int i2cAddress=13;
 /* Define the number of slots that this backplane unit will support 1 or 3*/
 const int numBackplaneSlots=3;
 /* set up the shift in and out registers */
@@ -164,13 +164,6 @@ void setup() {
   pinMode(dataPin, INPUT);
   shiftout.setBitCount(DATA_WIDTH);
   shiftout.setPins(dataOutPin, clockOutPin, latchOutPin);
-  //pinMode(latchOutPin, OUTPUT);
-  //pinMode(clockOutPin, OUTPUT);
-  //pinMode(dataOutPin, OUTPUT);
-  //shiftout.begin(dataOutPin, clockOutPin, latchOutPin);
-  /* when a backplane unit is reset, it should set everything to low */
-  //shiftout.setAllLow();
-  //shiftout.write();
   /* I2C --> */
   Wire.begin(i2cAddress);
   Wire.onRequest(requestEvents);
@@ -209,7 +202,6 @@ int readShiftInPin(int slotNum, int pinNumber) {
     }
     pinOffsetVal=pinOffsetVal+8;
   }
-  //Serial.print(pinOffsetVal); //Serial.print(slotNum); //return shiftin.state(pinOffsetVal); //Serial.println(get_pin_value(pinOffsetVal));
   return get_pin_value(pinOffsetVal);
 }
 
@@ -222,18 +214,11 @@ void writeShiftOutPin(int slotNum, int pinNumber, int highOrLow) {
     }
     pinOffsetVal=pinOffsetVal+8;
   }
-  //Serial.print("Slot:");
-  //Serial.print(slotNum);
-  //Serial.print(pinNumber);
-  //Serial.println(pinOffsetVal);
   if (highOrLow == HIGH) {
-    //shiftout.setHigh(pinOffsetVal);
     shiftout.writeBit(pinOffsetVal, HIGH);
   } else {
-    //shiftout.setLow(pinOffsetVal);
     shiftout.writeBit(pinOffsetVal, LOW);
   }
-  //shiftout.write();
 }
 
 int getType(int slotNum) {
@@ -320,9 +305,9 @@ void i2cRespond(int slotNum)
     Serial.print("button: ");         // print the character
     Serial.print(readShiftInPin(slotNum, 4));         // print the character
     Serial.print("type: ");         // print the character
-    //Serial.println(readShiftInPin(slotNum, 5));         // print the character
     Serial.println(getType(slotNum));         // print the character
   }
+  delay(10);
 }
 
 /*
@@ -330,7 +315,9 @@ void i2cRespond(int slotNum)
  */
 void receiveEvents(int howMany)
 {
-  Serial.println("Received Message");
+  if (enableSerialPrintout == 1) {
+    Serial.println("Received Message");
+  }
   int c[2];
   for(int b=0; b<2; b++) {
     c[b]=0;
@@ -344,13 +331,7 @@ void receiveEvents(int howMany)
     i=i+1;
   }
   /* Power Toggle Mode
-   * 0 Power off
-   * 1 Powering On (not used for now)
-   * 2 Powered on
-   * 3 Powering off
-   * 4 Waiting for Safe Shutdown to finish
-   * 5 Hard Shutdown
-   * 9 Update Master with data
+   * 0 Power off, 1 Powering On (not used for now), 2 Powered on, 3 Powering off, 4 Waiting for Safe Shutdown to finish, 5 Hard Shutdown, 9 Respond to Master with data
    */
   int slotNum;
   slotNum = c[1]-1;
@@ -364,7 +345,7 @@ void sendToMaster(int slotNum)
 {
   /* We send to 1 to send to the master */
   /* begin transmission to master */
-  Wire.beginTransmission(1);
+  Wire.beginTransmission(8);
   /* Run the sequence to send to the master */
   i2cRespond(slotNum);
   /* end transmission */
@@ -379,50 +360,11 @@ void loop()
 {
   /* Check if any pins have updated on the shiftregisters */
   pinValues = read_shift_regs();
-  if (pinValues != oldPinValues) {
-    /* Update master */
-    int count=0;
-    int slotnum=0;
-    int changed[3];
-    for(int b=0; b<3; b++) {
-      changed[b]=0;
-    }
-    for(int i = 0; i < DATA_WIDTH; i++)
-    {
-      int test1 = (pinValues >> i) & 1;
-      int test2 = (oldPinValues >> i) & 1;
-      if(test1 != test2) {
-        changed[slotnum] = 1;
-      }
-      if (count == 7) { //we have 8 pins in the shift register per slot, if we hit count 7 that is the last pin for that slot, do the function
-        if (changed[slotnum] == 1) {
-          int sendslot = slotnum+1; //we can't use 0, bump it by 1 to send to master
-          sendToMaster(sendslot);
-          delay(5);
-        }
-        count = 0; // reset
-        changed[slotnum] = 0; // reset
-        slotnum++; // increment slotnum for next slot
-      } else {
-        // increment else
-        count++;
-      }
-    }
-    oldPinValues = pinValues; // revert
-  }
-  if(powerstatus[0]==9) {
-    /* Polled by master */
-    if (enableSerialPrintout == 1) {
-      Serial.println("Polled by Master");
-    }
-    /* Update master */
-    for(int i = 1; i <= numBackplaneSlots; i ++) {
-      sendToMaster(i);
-      delay(5);
-    }
-    powerstatus[0] = 0;
-  }
-  runPollInterval(); // send to master every pollInterval period (default 60 seconds)
+
+  pinValueCheck();
+  powerStatusPoll();
+  //runPollInterval(); // send to master every pollInterval period (default 60 seconds)
+
   /* do button check stuff here, physical pin 5 is pinoffset value of 4 on the shift register*/
   int pinOffsetVal = 4;
   for(int i = 1; i <= numBackplaneSlots; i ++) {
@@ -560,10 +502,57 @@ void loop()
   delay(50);
 }
 
+void powerStatusPoll() {
+  if(powerstatus[0]==9) {
+    /* Polled by master */
+    if (enableSerialPrintout == 1) {
+      Serial.println("Polled by Master");
+    }
+    /* Update master */
+    for(int i = 1; i <= numBackplaneSlots; i ++) {
+      sendToMaster(i);
+    }
+    powerstatus[0] = 0;
+  }
+}
+
+void pinValueCheck() {
+  if (pinValues != oldPinValues) {
+    /* Update master */
+    int count=0;
+    int slotnum=0;
+    int changed[3];
+    for(int b=0; b<3; b++) {
+      changed[b]=0;
+    }
+    for(int i = 0; i < DATA_WIDTH; i++)
+    {
+      int test1 = (pinValues >> i) & 1;
+      int test2 = (oldPinValues >> i) & 1;
+      if(test1 != test2) {
+        changed[slotnum] = 1;
+      }
+      if (count == 7) { //we have 8 pins in the shift register per slot, if we hit count 7 that is the last pin for that slot, do the function
+        if (changed[slotnum] == 1) {
+          int sendslot = slotnum+1; //we can't use 0, bump it by 1 to send to master
+          sendToMaster(sendslot);
+          delay(5);
+        }
+        count = 0; // reset
+        changed[slotnum] = 0; // reset
+        slotnum++; // increment slotnum for next slot
+      } else {
+        // increment else
+        count++;
+      }
+    }
+    oldPinValues = pinValues; // revert
+  }
+}
 /* start check functions */
 void runPollInterval() {
   currentMillisPoll = millis();
-  if ((unsigned long)(currentMillisPoll - previousMillisPoll) >= pollInterval) { // enough time passed yet?
+  if ((currentMillisPoll - previousMillisPoll) >= pollInterval) { // enough time passed yet?
     for(int i = 1; i <= numBackplaneSlots; i ++) {
       sendToMaster(i);
       delay(5);
@@ -574,7 +563,7 @@ void runPollInterval() {
 void blinkCheck(int slotNum) {
   if (blinking[slotNum]) {
     currentMillis[slotNum] = millis();
-    if ((unsigned long)(currentMillis[slotNum] - previousMillis[slotNum]) >= blinkInterval) { // enough time passed yet?
+    if ((currentMillis[slotNum] - previousMillis[slotNum]) >= blinkInterval) { // enough time passed yet?
       if (flash[slotNum] == 0) {
         writeShiftOutPin(slotNum, 1, LOW);
         flash[slotNum] = 1;
@@ -589,7 +578,7 @@ void blinkCheck(int slotNum) {
 void fastBlinkCheck(int slotNum) {
   if (fastBlinking[slotNum]) {
     currentMillisFast[slotNum] = millis();
-    if ((unsigned long)(currentMillisFast[slotNum] - previousMillisFast[slotNum]) >= fastBlinkInterval) { // enough time passed yet?
+    if ((currentMillisFast[slotNum] - previousMillisFast[slotNum]) >= fastBlinkInterval) { // enough time passed yet?
       if (flash[slotNum] == 0) {
         writeShiftOutPin(slotNum, 1, LOW);
         flash[slotNum] = 1;
@@ -604,7 +593,7 @@ void fastBlinkCheck(int slotNum) {
 void piDetectCheck(int slotNum) {
   if (checkPiIsOff[slotNum]) {
     currentMillisPiCheck[slotNum] = millis();
-    if ((unsigned long)(currentMillisPiCheck[slotNum] - previousMillisPiCheck[slotNum]) >= piCheckInterval) { // enough time passed yet?
+    if ((currentMillisPiCheck[slotNum] - previousMillisPiCheck[slotNum]) >= piCheckInterval) { // enough time passed yet?
       if (checkPiOff(slotNum) == 0) {
         checkOffCount[slotNum] = checkOffCount[slotNum] + 1;
       } else {

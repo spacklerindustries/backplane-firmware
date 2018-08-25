@@ -13,10 +13,14 @@ int a[32];
 String inputString = "";
 boolean stringComplete = false;
 
+unsigned long currentMillisPoll;
+unsigned long previousMillisPoll;
+unsigned long pollInterval = 60000; // 60 seconds
+
 void setup() {
   /* join as slave ID 1 to accept onrecieve events */
   /* i2c */
-  Wire.begin(1);
+  Wire.begin(8);
   Wire.onReceive(receiveEvents);
   /* i2c */
   Serial.begin(9600);
@@ -32,6 +36,7 @@ void loop() {
     inputString = "";
     stringComplete = false;
   }
+  runPollInterval();
 }
 
 void serialEvent() {
@@ -72,7 +77,7 @@ void receiveEvents(int howMany)
 {
   int argIndex = -1;
   while(Wire.available()) {
-    if (argIndex < 32){
+    if (argIndex < 32) {
       argIndex++;
       a[argIndex] = Wire.read(); /* collect all th data from slave */
     }
@@ -80,4 +85,48 @@ void receiveEvents(int howMany)
   String buffer = "{\"i2ca\":" +String(a[0])+ ",\"i2cs\":" +String(a[6])+ ",\"ps\":" +String(a[1])+ ",\"ao\":" +String(a[4])+ ",\"ct\":" +String(a[5])+ "}";
   //output the buffer to serial for reading by backplane-controller service
   Serial.println(buffer);
+}
+
+void runPollInterval() {
+  currentMillisPoll = millis();
+  if ((currentMillisPoll - previousMillisPoll) >= pollInterval) { // enough time passed yet?
+    requestStatus();
+    previousMillisPoll = currentMillisPoll; // sets the time we wait "from"
+  }
+}
+
+void requestStatus() {
+  byte error, address;
+  for(address = 9; address < 120; address++ )
+  {
+    Wire.beginTransmission(address);
+    error = Wire.endTransmission();
+    if (error == 0) {
+      Serial.print("{\"message\":\"I2C device found at address 0x");
+      if (address<16) {
+        Serial.print("0");
+      }
+      Serial.print(address,HEX);
+      Serial.println("\"}");
+      Wire.requestFrom((int)address, 7); //request 7 bytes from slave
+      int argIndex = -1;
+      while(Wire.available()) { //loop through the bytes
+        if (argIndex < 32){
+          argIndex++;
+          a[argIndex] = Wire.read(); /* collect all th data from slave */
+        }
+      }
+      String buffer = "{\"i2ca\":" +String(a[0])+ ",\"i2cs\":" +String(a[6])+ ",\"ps\":" +String(a[1])+ ",\"ao\":" +String(a[4])+ ",\"ct\":" +String(a[5])+ "}";
+      //output the buffer to serial for reading by backplane-controller service
+      Serial.println(buffer);
+    }
+    else if (error==4) {
+      Serial.print("{\"message\":\"Unknown error at address 0x");
+      if (address<16) {
+        Serial.print("0");
+      }
+      Serial.print(address,HEX);
+      Serial.println("\"}");
+    }
+  }
 }
