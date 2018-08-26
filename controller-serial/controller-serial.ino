@@ -17,6 +17,8 @@ unsigned long currentMillisPoll;
 unsigned long previousMillisPoll;
 unsigned long pollInterval = 60000; // 60 seconds
 
+int respBytes=7; //number of bytes returned for each slot from a backplane starting from 0, ie (0-7 = 8bytes)
+
 void setup() {
   /* join as slave ID 1 to accept onrecieve events */
   /* i2c */
@@ -82,7 +84,8 @@ void receiveEvents(int howMany)
       a[argIndex] = Wire.read(); /* collect all th data from slave */
     }
   }
-  String buffer = "{\"i2ca\":" +String(a[0])+ ",\"i2cs\":" +String(a[6])+ ",\"ps\":" +String(a[1])+ ",\"ao\":" +String(a[4])+ ",\"ct\":" +String(a[5])+ "}";
+  String buffer = "{\"message\": \"slot data\",";
+  buffer += "\"slots\":[{\"i2ca\":" +String(a[0])+ ",\"i2cs\":" +String(a[6])+ ",\"ps\":" +String(a[1])+ ",\"ao\":" +String(a[4])+ ",\"ct\":" +String(a[5])+ "}]}";
   //output the buffer to serial for reading by backplane-controller service
   Serial.println(buffer);
 }
@@ -107,16 +110,48 @@ void requestStatus() {
         Serial.print("0");
       }
       Serial.print(address,HEX);
-      Serial.println("\"}");
-      Wire.requestFrom((int)address, 7); //request 7 bytes from slave
+      Serial.println("\", \"slots\":[]}");
+      Wire.requestFrom((int)address, 30); //request 7 bytes from slave
       int argIndex = -1;
       while(Wire.available()) { //loop through the bytes
         if (argIndex < 32){
           argIndex++;
-          a[argIndex] = Wire.read(); /* collect all th data from slave */
+          a[argIndex] = Wire.read(); /* collect all the data from slave */
         }
       }
-      String buffer = "{\"i2ca\":" +String(a[0])+ ",\"i2cs\":" +String(a[6])+ ",\"ps\":" +String(a[1])+ ",\"ao\":" +String(a[4])+ ",\"ct\":" +String(a[5])+ "}";
+      String buffer = "{\"message\": \"slot data\", \"slots\":[";
+      int i2ca=0;
+      int i2cs=6;
+      int ps=1;
+      int ao=4;
+      int ct=5;
+      int numSlots=-1;
+      int byteCount=7;
+      // calculate how many slots we got data for
+      for (int retData=0; retData<32; retData++) {
+        if (retData == byteCount) {
+          if (a[byteCount] == 254) {
+            numSlots++;
+            if (a[byteCount+1] == 255) {
+              break;
+            }
+          }
+        }
+      }
+      // parse the data into json
+      for (int slot=0; slot<=numSlots; slot++) {
+        if (slot != 0) {
+          buffer += ","; // add comma to all other slots
+        }
+        buffer += "{\"i2ca\":" +String(a[i2ca])+ ",\"i2cs\":" +String(a[i2cs])+ ",\"ps\":" +String(a[ps])+ ",\"ao\":" +String(a[ao])+ ",\"ct\":" +String(a[ct]) +"}";
+        i2ca=i2ca+respBytes;
+        i2cs=i2cs+respBytes;
+        ps=ps+respBytes;
+        ao=ao+respBytes;
+        ct=ct+respBytes;
+      }
+      //buffer += "{\"i2ca\":" +String(a[i2ca])+ ",\"i2cs\":" +String(a[i2cs])+ ",\"ps\":" +String(a[ps])+ ",\"ao\":" +String(a[ao])+ ",\"ct\":" +String(a[ct]) +"}";
+      buffer += "]}";
       //output the buffer to serial for reading by backplane-controller service
       Serial.println(buffer);
     }
@@ -126,7 +161,7 @@ void requestStatus() {
         Serial.print("0");
       }
       Serial.print(address,HEX);
-      Serial.println("\"}");
+      Serial.println("\", \"slots\":[]}");
     }
   }
 }

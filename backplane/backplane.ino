@@ -24,9 +24,9 @@ Move to 3 slots per backplane board:
 */
 
 /* Includes */
-//i2c
+// i2c
 #include <Wire.h>
-//shift register
+// shift register
 #include <Shifty.h> /* https://github.com/johnnyb/Shifty */
 
 /* Set up I/O */
@@ -89,6 +89,8 @@ int buttonstate[numBackplaneSlots];
 int buttonstatelast[numBackplaneSlots];
 unsigned long downTime[numBackplaneSlots];
 unsigned long upTime[numBackplaneSlots];
+
+int bitValue[] = {1,2,4,8};  /* bit position decimal equivalents */
 /* <-- Setup */
 
 BYTES_VAL_T read_shift_regs()
@@ -117,6 +119,7 @@ BYTES_VAL_T read_shift_regs()
 
 void display_pin_values()
 {
+  if (enableSerialPrintout == 1) {
     Serial.print("Pin States:\r\n");
     for(int i = 0; i < DATA_WIDTH; i++)
     {
@@ -130,6 +133,7 @@ void display_pin_values()
         Serial.print("\r\n");
     }
     Serial.print("\r\n");
+  }
 }
 
 int get_pin_value(int pinNumber)
@@ -155,7 +159,6 @@ void setup() {
   if (enableSerialPrintout == 1) {
     Serial.begin(115200);
     Serial.println("Set Up");
-    Serial.println("Intelligent Controller");
   }
   /* Set up shiftregsiter pins */
   pinMode(ploadPin, OUTPUT);
@@ -190,8 +193,10 @@ void setup() {
   pinValues = read_shift_regs();
   display_pin_values();
   oldPinValues = pinValues;
-  Serial.print("Values: ");
-  Serial.println(pinValues);
+  if (enableSerialPrintout == 1) {
+    Serial.print("Values: ");
+    Serial.println(pinValues);
+  }
 }
 
 int readShiftInPin(int slotNum, int pinNumber) {
@@ -222,8 +227,6 @@ void writeShiftOutPin(int slotNum, int pinNumber, int highOrLow) {
 }
 
 int getType(int slotNum) {
-  //Serial.print("SlotNum: ");
-  //Serial.println(slotNum);
   int pinOffsetVal = 0;
   for(int i = 1; i <= numBackplaneSlots; i ++) {
     if (i == slotNum) {
@@ -232,7 +235,6 @@ int getType(int slotNum) {
     pinOffsetVal=pinOffsetVal+8;
   }
   int ret = 0;  /* Initialize the variable to return */
-  int bitValue[] = {1,2,4,8};  /* bit position decimal equivalents */
   for(int i = 0; i < 4; i++)  /* cycle through all the pins */
   {
     int pinStateAndOffset = i+pinOffsetVal;
@@ -254,9 +256,7 @@ int getType(int slotNum) {
 void requestEvents()
 {
   /* poll through input shift register data */
-  for(int i = 1; i <= numBackplaneSlots; i ++) {
-    i2cRespond(i);
-  }
+  i2cRespond(0, numBackplaneSlots); //send all results back
 }
 
 int invertLogic(int logic)
@@ -271,41 +271,87 @@ int invertLogic(int logic)
 /*
  * reply to send to master
  */
-void i2cRespond(int slotNum)
+void i2cRespond(int slotNum, int numSlots)
 {
-  uint8_t respond[7];
-  /* Slavenumber */
-  respond[0]=i2cAddress;
-  /* Power Status */
-  int powState = readShiftInPin(slotNum, 7);
-  respond[1]=invertLogic(powState);
-  /* LED Status */
-  respond[2]=invertLogic(powState);
-  /* Pi Detection */
-  int piState = readShiftInPin(slotNum, 6);
-  respond[3]=invertLogic(piState);
-  /* AlwaysOn */
-  int alwaysOn = readShiftInPin(slotNum, 5);
-  respond[4]=invertLogic(alwaysOn);
-  /* CaddyType */
-  //caddyType = parallelToByte();
-  respond[5]=getType(slotNum);
-  /* slot number on the backplane */
-  respond[6]=slotNum;
-  Wire.write(respond, 7);
-  if (enableSerialPrintout == 1) {
-    Serial.print("Respond:");
-    Serial.println(slotNum);
-    Serial.print("power: ");         // print the character
-    Serial.print(invertLogic(powState));         // print the character
-    Serial.print("pidetect: ");         // print the character
-    Serial.print(invertLogic(piState));         // print the character
-    Serial.print("always on: ");         // print the character
-    Serial.print(invertLogic(alwaysOn));         // print the character
-    Serial.print("button: ");         // print the character
-    Serial.print(readShiftInPin(slotNum, 4));         // print the character
-    Serial.print("type: ");         // print the character
-    Serial.println(getType(slotNum));         // print the character
+  if (numSlots > 0) {
+    int returnBytes=8*numSlots;
+    returnBytes++; //add one for final byte
+    uint8_t respond[returnBytes];
+    int returnByte=0;
+    for (int i=1; i<=numSlots; i++) {
+      respond[returnByte]=i2cAddress;
+      /* Power Status */
+      int powState = readShiftInPin(i, 7);
+      respond[returnByte]=invertLogic(powState);
+      /* LED Status */
+      respond[returnByte]=invertLogic(powState);
+      /* Pi Detection */
+      int piState = readShiftInPin(i, 6);
+      respond[returnByte]=invertLogic(piState);
+      /* AlwaysOn */
+      int alwaysOn = readShiftInPin(i, 5);
+      respond[returnByte]=invertLogic(alwaysOn);
+      /* CaddyType */
+      //caddyType = parallelToByte();
+      respond[returnByte]=getType(i);
+      /* slot number on the backplane */
+      respond[returnByte]=i;
+      respond[returnByte]=254; // END SLOT
+      if (enableSerialPrintout == 1) {
+        Serial.print("Respond:");
+        Serial.println(i);
+        Serial.print("power: ");         // print the character
+        Serial.print(invertLogic(powState));         // print the character
+        Serial.print("pidetect: ");         // print the character
+        Serial.print(invertLogic(piState));         // print the character
+        Serial.print("always on: ");         // print the character
+        Serial.print(invertLogic(alwaysOn));         // print the character
+        Serial.print("button: ");         // print the character
+        Serial.print(readShiftInPin(i, 4));         // print the character
+        Serial.print("type: ");         // print the character
+        Serial.println(getType(i));         // print the character
+      }
+      returnByte++;
+    }
+    respond[returnByte]=255; // END SLOT
+    Wire.write(respond, returnBytes);
+  } else {
+    uint8_t respond[9];
+    /* Slavenumber */
+    respond[0]=i2cAddress;
+    /* Power Status */
+    int powState = readShiftInPin(slotNum, 7);
+    respond[1]=invertLogic(powState);
+    /* LED Status */
+    respond[2]=invertLogic(powState);
+    /* Pi Detection */
+    int piState = readShiftInPin(slotNum, 6);
+    respond[3]=invertLogic(piState);
+    /* AlwaysOn */
+    int alwaysOn = readShiftInPin(slotNum, 5);
+    respond[4]=invertLogic(alwaysOn);
+    /* CaddyType */
+    //caddyType = parallelToByte();
+    respond[5]=getType(slotNum);
+    /* slot number on the backplane */
+    respond[6]=slotNum;
+    respond[7]=254; // END SLOT
+    respond[8]=255; // END STREAM
+    Wire.write(respond, 9);
+    if (enableSerialPrintout == 1) {
+      Serial.print("Respond:");
+      Serial.println(slotNum);
+      Serial.print("power: ");         // print the character
+      Serial.print(invertLogic(powState));         // print the character
+      Serial.print("pidetect: ");         // print the character
+      Serial.print(invertLogic(piState));         // print the character
+      Serial.print("always on: ");         // print the character
+      Serial.print(invertLogic(alwaysOn));         // print the character
+      Serial.print("button: ");         // print the character
+      Serial.print(readShiftInPin(slotNum, 4));         // print the character
+      Serial.print("type: ");         // print the character
+      Serial.println(getType(slotNum));         // print the character
+    }
   }
   delay(10);
 }
@@ -347,7 +393,7 @@ void sendToMaster(int slotNum)
   /* begin transmission to master */
   Wire.beginTransmission(8);
   /* Run the sequence to send to the master */
-  i2cRespond(slotNum);
+  i2cRespond(slotNum, 0);
   /* end transmission */
   Wire.endTransmission();
 }
@@ -388,22 +434,32 @@ void loop()
       /* button state check */
       if (buttonstate[slotNum] == 0 && buttonstatelast[slotNum] == 1 && (millis() - upTime[slotNum]) > debounce) {
         downTime[slotNum] = millis();
-        Serial.println("down");
+        if (enableSerialPrintout == 1) {
+          Serial.println("down");
+        }
       } else if (buttonstate[slotNum] == 1 && buttonstatelast[slotNum] == 0 && (millis() - downTime[slotNum]) > longPress) {
         upTime[slotNum] = millis();
-        Serial.println("up longpress");
+        if (enableSerialPrintout == 1) {
+          Serial.println("up longpress");
+        }
         powerstatus[slotNum] = 5;
       } else if (buttonstate[slotNum] == 0 && (millis() - downTime[slotNum]) > longPress) {
         fastBlinking[slotNum] = true;
       } else if (buttonstate[slotNum] == 1 && buttonstatelast[slotNum] == 0 && (millis() - downTime[slotNum]) > debounce) {
         upTime[slotNum] = millis();
-        Serial.println("up");
-        Serial.println(readShiftInPin(slotNum+1, 7));
+        if (enableSerialPrintout == 1) {
+          Serial.println("up");
+          Serial.println(readShiftInPin(slotNum+1, 7));
+        }
         if (readShiftInPin(slotNum+1, 7) == 1) {
-          Serial.println("power is off");
+          if (enableSerialPrintout == 1) {
+            Serial.println("power is off");
+          }
           powerstatus[slotNum] = 2;
         } else {
-          Serial.println("power is on");
+          if (enableSerialPrintout == 1) {
+            Serial.println("power is on");
+          }
           powerstatus[slotNum] = 3;
         }
       }
@@ -627,7 +683,9 @@ void powerOff(int slotNum)
   //digitalWrite(MOSFET_PIN, LOW);
   writeShiftOutPin(slotNum, 0, LOW);
   writeShiftOutPin(slotNum, 1, LOW);
-  Serial.println("PowerOff");
+  if (enableSerialPrintout == 1) {
+    Serial.println("PowerOff");
+  }
 }
 
 /*
@@ -639,7 +697,9 @@ void powerOn(int slotNum)
   //digitalWrite(MOSFET_PIN, HIGH);
   writeShiftOutPin(slotNum, 0, HIGH);
   writeShiftOutPin(slotNum, 1, HIGH);
-  //Serial.println("PowerOn");
+  if (enableSerialPrintout == 1) {
+    Serial.println("PowerOn");
+  }
 }
 
 int pinOffsetNumber(int slotNum, int pinNum) {
