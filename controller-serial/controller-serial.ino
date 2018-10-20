@@ -15,14 +15,16 @@ boolean stringComplete = false;
 
 unsigned long currentMillisPoll;
 unsigned long previousMillisPoll;
-unsigned long pollInterval = 60000; // 60 seconds
+unsigned long pollInterval = 30000; // 30 seconds
 
-int respBytes=7; //number of bytes returned for each slot from a backplane starting from 0, ie (0-7 = 8bytes)
+int respBytes=8; //number of bytes returned for each slot 8bytes
+
+byte maxAddresses = 120;
 
 void setup() {
   /* join as slave ID 1 to accept onrecieve events */
   /* i2c */
-  Wire.begin(8);
+  Wire.begin();
   Wire.onReceive(receiveEvents);
   /* i2c */
   Serial.begin(9600);
@@ -33,6 +35,10 @@ void loop() {
     // do something with the data we got
     jsonBuffer.clear(); //clear the buffer or it stops updating properly
     JsonObject& root = jsonBuffer.parseObject(inputString);
+    inputString.trim();
+    String buffer = "{\"message\": \"received request\",\"slots\":[], \"received\": ["+inputString+"]}";
+    //output the buffer to serial for reading by backplane-controller service
+    Serial.println(buffer);
     powerControlSlot(root["i2caddress"], root["i2cslot"], root["powercon"]);
     // clear the string:
     inputString = "";
@@ -69,6 +75,9 @@ void powerControlSlot(byte i2c, byte slot, byte cmd) {
   //Serial.println(String(received_backplane) + ":" + String(received_slotnum) + ":" + String(power_cmd));
   Wire.write(respond, 2);
   Wire.endTransmission();
+  String buffer = "{\"message\": \"I2C"+String(i2c)+",SL"+String(slot)+",CMD"+String(cmd)+",RESP:"+String(respond[0])+String(respond[1])+"\",\"slots\":[]}";
+  //output the buffer to serial for reading by backplane-controller service
+  Serial.println(buffer);
 }
 
 /*
@@ -100,18 +109,20 @@ void runPollInterval() {
 
 void requestStatus() {
   byte error, address;
-  for(address = 9; address < 120; address++ )
+  for(address = 8; address < maxAddresses; address++ )
   {
     Wire.beginTransmission(address);
+    delay(100);
     error = Wire.endTransmission();
+    delay(500);
     if (error == 0) {
-      Serial.print("{\"message\":\"I2C device found at address 0x");
-      if (address<16) {
-        Serial.print("0");
-      }
-      Serial.print(address,HEX);
+      delay(500);
+      
+      Serial.print("{\"message\":\"I2C device found at address ");
+      Serial.print(address);
       Serial.println("\", \"slots\":[]}");
-      Wire.requestFrom((int)address, 30); //request 7 bytes from slave
+      
+      Wire.requestFrom((int)address, 32); //request 7 bytes from slave
       int argIndex = -1;
       while(Wire.available()) { //loop through the bytes
         if (argIndex < 32){
@@ -125,21 +136,27 @@ void requestStatus() {
       int ps=1;
       int ao=4;
       int ct=5;
-      int numSlots=-1;
+      int numSlots=0;
       int byteCount=7;
       // calculate how many slots we got data for
       for (int retData=0; retData<32; retData++) {
-        if (retData == byteCount) {
-          if (a[byteCount] == 254) {
+        //if (retData == byteCount) {
+          if (a[retData] == 254) {
             numSlots++;
-            if (a[byteCount+1] == 255) {
-              break;
-            }
+            //byteCount=byteCount+7;
+            //if (a[byteCount+1] == 255) {
+            //break;
+            //}
           }
-        }
+        //}
       }
+      /*
+      Serial.print("{\"message\":\"number of slots returned; ");
+      Serial.print(numSlots);
+      Serial.println("\", \"slots\":[]}");
+      */
       // parse the data into json
-      for (int slot=0; slot<=numSlots; slot++) {
+      for (int slot = 0; slot < numSlots; slot++) {
         if (slot != 0) {
           buffer += ","; // add comma to all other slots
         }
@@ -154,6 +171,7 @@ void requestStatus() {
       buffer += "]}";
       //output the buffer to serial for reading by backplane-controller service
       Serial.println(buffer);
+      delay(500);
     }
     else if (error==4) {
       Serial.print("{\"message\":\"Unknown error at address 0x");

@@ -274,29 +274,33 @@ int invertLogic(int logic)
 void i2cRespond(int slotNum, int numSlots)
 {
   if (numSlots > 0) {
-    int returnBytes=8*numSlots;
-    returnBytes++; //add one for final byte
-    uint8_t respond[returnBytes];
+    //int returnBytes=8*numSlots;
+    //returnBytes++; //add one for final byte
+    uint8_t respond[32];
+    for (int i=0; i<32; i++) {
+      respond[i]=255; //pad out the response bytes
+    }
     int returnByte=0;
     for (int i=1; i<=numSlots; i++) {
       respond[returnByte]=i2cAddress;
       /* Power Status */
       int powState = readShiftInPin(i, 7);
-      respond[returnByte]=invertLogic(powState);
+      respond[returnByte+1]=invertLogic(powState);
       /* LED Status */
-      respond[returnByte]=invertLogic(powState);
+      respond[returnByte+2]=invertLogic(powState);
       /* Pi Detection */
       int piState = readShiftInPin(i, 6);
-      respond[returnByte]=invertLogic(piState);
+      respond[returnByte+3]=invertLogic(piState);
       /* AlwaysOn */
       int alwaysOn = readShiftInPin(i, 5);
-      respond[returnByte]=invertLogic(alwaysOn);
+      respond[returnByte+4]=invertLogic(alwaysOn);
       /* CaddyType */
       //caddyType = parallelToByte();
-      respond[returnByte]=getType(i);
+      respond[returnByte+5]=getType(i);
       /* slot number on the backplane */
-      respond[returnByte]=i;
-      respond[returnByte]=254; // END SLOT
+      respond[returnByte+6]=i;
+      respond[returnByte+7]=254; // END SLOT
+      returnByte=returnByte+8;
       if (enableSerialPrintout == 1) {
         Serial.print("Respond:");
         Serial.println(i);
@@ -311,12 +315,14 @@ void i2cRespond(int slotNum, int numSlots)
         Serial.print("type: ");         // print the character
         Serial.println(getType(i));         // print the character
       }
-      returnByte++;
     }
     respond[returnByte]=255; // END SLOT
-    Wire.write(respond, returnBytes);
+    Wire.write(respond, 32);
   } else {
-    uint8_t respond[9];
+    uint8_t respond[32];
+    for (int i=0; i<32; i++) {
+      respond[i]=255; //pad out the response bytes
+    }
     /* Slavenumber */
     respond[0]=i2cAddress;
     /* Power Status */
@@ -337,7 +343,7 @@ void i2cRespond(int slotNum, int numSlots)
     respond[6]=slotNum;
     respond[7]=254; // END SLOT
     respond[8]=255; // END STREAM
-    Wire.write(respond, 9);
+    Wire.write(respond, 32);
     if (enableSerialPrintout == 1) {
       Serial.print("Respond:");
       Serial.println(slotNum);
@@ -368,6 +374,12 @@ void receiveEvents(int howMany)
   for(int b=0; b<2; b++) {
     c[b]=0;
   }
+  for (int i = 0; i < howMany; i++) {
+    c[i] = Wire.read();
+    int ctest = c[i]; //testing declaration
+    Serial.print(c[i]);
+  }
+  /*
   int i = 0;
   while (Wire.available()) { // loop through all but the last
     c[i] = Wire.read(); // receive byte as a character
@@ -375,7 +387,7 @@ void receiveEvents(int howMany)
       Serial.print(c[i]);         // print the character
     }
     i=i+1;
-  }
+  }/*
   /* Power Toggle Mode
    * 0 Power off, 1 Powering On (not used for now), 2 Powered on, 3 Powering off, 4 Waiting for Safe Shutdown to finish, 5 Hard Shutdown, 9 Respond to Master with data
    */
@@ -391,11 +403,11 @@ void sendToMaster(int slotNum)
 {
   /* We send to 1 to send to the master */
   /* begin transmission to master */
-  Wire.beginTransmission(8);
+  //Wire.beginTransmission(8);
   /* Run the sequence to send to the master */
-  i2cRespond(slotNum, 0);
+  //i2cRespond(slotNum, 0);
   /* end transmission */
-  Wire.endTransmission();
+  //Wire.endTransmission();
 }
 /* <-- I2C */
 
@@ -407,8 +419,50 @@ void loop()
   /* Check if any pins have updated on the shiftregisters */
   pinValues = read_shift_regs();
 
-  pinValueCheck();
-  powerStatusPoll();
+  //pinValueCheck();
+  if (pinValues != oldPinValues) {
+    /* Update master */
+    int count=0;
+    int slotnum=0;
+    int changed[3];
+    for(int b=0; b<3; b++) {
+      changed[b]=0;
+    }
+    for(int i = 0; i < DATA_WIDTH; i++)
+    {
+      int test1 = (pinValues >> i) & 1;
+      int test2 = (oldPinValues >> i) & 1;
+      if(test1 != test2) {
+        changed[slotnum] = 1;
+      }
+      if (count == 7) { //we have 8 pins in the shift register per slot, if we hit count 7 that is the last pin for that slot, do the function
+        if (changed[slotnum] == 1) {
+          int sendslot = slotnum+1; //we can't use 0, bump it by 1 to send to master
+          sendToMaster(sendslot);
+          delay(5);
+        }
+        count = 0; // reset
+        changed[slotnum] = 0; // reset
+        slotnum++; // increment slotnum for next slot
+      } else {
+        // increment else
+        count++;
+      }
+    }
+    oldPinValues = pinValues; // revert
+  }
+  //powerStatusPoll();
+  if(powerstatus[0]==9) {
+    /* Polled by master */
+    if (enableSerialPrintout == 1) {
+      Serial.println("Polled by Master");
+    }
+    /* Update master */
+    for(int i = 1; i <= numBackplaneSlots; i ++) {
+      sendToMaster(i);
+    }
+    powerstatus[0] = 0;
+  }
   //runPollInterval(); // send to master every pollInterval period (default 60 seconds)
 
   /* do button check stuff here, physical pin 5 is pinoffset value of 4 on the shift register*/
@@ -558,23 +612,23 @@ void loop()
   delay(50);
 }
 
-void powerStatusPoll() {
+/*void powerStatusPoll() {
   if(powerstatus[0]==9) {
-    /* Polled by master */
+    /* Polled by master
     if (enableSerialPrintout == 1) {
       Serial.println("Polled by Master");
     }
-    /* Update master */
+    /* Update master
     for(int i = 1; i <= numBackplaneSlots; i ++) {
       sendToMaster(i);
     }
     powerstatus[0] = 0;
   }
-}
+}*/
 
-void pinValueCheck() {
+/*void pinValueCheck() {
   if (pinValues != oldPinValues) {
-    /* Update master */
+    /* Update master /
     int count=0;
     int slotnum=0;
     int changed[3];
@@ -604,7 +658,8 @@ void pinValueCheck() {
     }
     oldPinValues = pinValues; // revert
   }
-}
+}*/
+
 /* start check functions */
 void runPollInterval() {
   currentMillisPoll = millis();
