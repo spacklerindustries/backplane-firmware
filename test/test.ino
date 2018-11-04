@@ -97,7 +97,15 @@ int bitValue[] = {1,2,4,8};
 Shifty shiftout;
 
 /* create WIFI client and PubSub objects */
-WiFiClient espClient;
+#ifdef mqtt_tls
+ #if (mqtt_tls == true)
+   WiFiClientSecure espClient;
+   int mqtt_used_port = mqtt_tls_port;
+ #else
+   WiFiClient espClient;
+   int mqtt_used_port = mqtt_port;
+ #endif
+#endif
 PubSubClient client(espClient);
 
 /* Initial setup of backplane unit */
@@ -116,6 +124,7 @@ void setup() {
   /* set up WiFi */
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
+  WiFi.hostname(mqtt_client_name);
   /* try connect 4 times, then skip and continue to function */
   for (int i=1; i<4; i++) {
     if (WiFi.waitForConnectResult() != WL_CONNECTED) {
@@ -133,7 +142,7 @@ void setup() {
   ArduinoOTA.setPort(8266);
   ArduinoOTA.setHostname(mqtt_client_name);
   if (ota_auth == true ) {
-    ArduinoOTA.setPassword((const char *)ota_password);
+    ArduinoOTA.setPassword(ota_password);
   }
   ArduinoOTA.onStart([]() {
     Serial.println("Start");
@@ -164,7 +173,7 @@ void setup() {
   oldPinValues = pinValues;
 
   /* connect MQTT */
-  client.setServer(mqtt_server, 1883);
+  client.setServer(mqtt_server, mqtt_used_port);
   client.setCallback(callback);
 
   /* WEB
@@ -753,4 +762,3 @@ void cmd3() {
 }
 
 /* WEB */
-
