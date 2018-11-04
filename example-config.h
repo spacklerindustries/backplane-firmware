@@ -9,7 +9,7 @@ const char* mqtt_server = "10.1.1.58";
 const int mqtt_tls_port = 8883;
 const int mqtt_port = 1883;
 //TODO: add verification to mqtt reconnect
-//define mqtt_server_fingerprint "60 B8 4C 1A 1C 26 BE 31 CF 6D 84 C3 79 8D BC F8 75 13 5B FA"
+#define mqtt_server_fingerprint "60 B8 4C 1A 1C 26 BE 31 CF 6D 84 C3 79 8D BC F8 75 13 5B FA"
 const char* mqtt_caddy_topic = "bp/power";
 char cstr[16];
 String client_name = "backplaneunit-" + String(backplane_number);

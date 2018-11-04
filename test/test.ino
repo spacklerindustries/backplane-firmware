@@ -128,7 +128,7 @@ void setup() {
   /* try connect 4 times, then skip and continue to function */
   for (int i=1; i<4; i++) {
     if (WiFi.waitForConnectResult() != WL_CONNECTED) {
-      Serial.println("Attepmt "+String(i)+"Connection Failed! Trying again...");
+      Serial.println("Attepmt "+String(i)+". Connection Failed! Trying again...");
       delay(1500);
       // no restart, we want backplane to still function even without wifi
       //ESP.restart();
@@ -235,6 +235,14 @@ void reconnect() {
     if (mqtt_auth == true) {
       if (client.connect(mqtt_client_name, mqtt_user, mqtt_password )) {
         Serial.println("connected");
+        if (mqtt_tls == true) {
+          if (espClient.verify(mqtt_server_fingerprint, mqtt_server)) {
+            Serial.println("Connection secure.");
+          } else {
+            Serial.println("Connection insecure! Halting execution.");
+            while (1);
+          }
+        }
         client.subscribe(mqtt_caddy_topic);
       } else {
         Serial.print("failed, rc=");
@@ -246,6 +254,14 @@ void reconnect() {
     } else {
       if (client.connect(mqtt_client_name)) {
         Serial.println("connected");
+        if (mqtt_tls == true) {
+          if (espClient.verify(mqtt_server_fingerprint, mqtt_server)) {
+            Serial.println("Connection secure.");
+          } else {
+            Serial.println("Connection insecure! Halting execution.");
+            while (1);
+          }
+        }
         client.subscribe(mqtt_caddy_topic);
       } else {
         Serial.print("failed, rc=");
@@ -762,3 +778,4 @@ void cmd3() {
 }
 
 /* WEB */
+
